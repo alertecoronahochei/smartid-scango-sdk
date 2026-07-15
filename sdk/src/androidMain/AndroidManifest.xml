@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Merged into every consumer app that depends on the SDK. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
+
+    <application>
+        <!-- Drop-in entry point for hosts that are not Compose-based:
+             launch it with ScanGoContract and get the list back. -->
+        <activity
+            android:name="ro.smartid.scango.ui.ScanGoActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.ScanGo" />
+    </application>
+
+</manifest>

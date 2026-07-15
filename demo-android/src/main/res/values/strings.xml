@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Scan&amp;Go Demo</string>
+    <string name="host_title">Aplicație terță (host)</string>
+    <string name="host_subtitle">Nu conține UI de scanare — tot ce vezi mai jos vine din SDK.</string>
+    <string name="open_scanner">Deschide Scan &amp; Go</string>
+    <string name="no_results">Niciun rezultat încă.</string>
+</resources>

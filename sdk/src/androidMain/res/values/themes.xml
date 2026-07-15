@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Self-contained theme so the SDK's activity does not inherit (or fight) the host's theme. -->
+    <style name="Theme.ScanGo" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
