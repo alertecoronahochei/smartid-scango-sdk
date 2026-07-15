@@ -18,6 +18,9 @@ import ro.smartid.scango.model.BarcodeFormat
  * AVFoundation has no dedicated UPC-A type: it reports UPC-A as EAN-13 with a leading zero.
  * Asking for UPC_A therefore enables the EAN-13 detector, and such reads surface as [BarcodeFormat.EAN_13].
  */
+// The AVMetadataObjectType* constants are Objective-C `NSString * const` without
+// nullability annotations, so Kotlin/Native exposes them as `String?`. They are always
+// non-null at runtime, hence the `!!`.
 internal fun BarcodeFormat.toAvMetadataType(): String = when (this) {
     BarcodeFormat.QR_CODE -> AVMetadataObjectTypeQRCode
     BarcodeFormat.DATA_MATRIX -> AVMetadataObjectTypeDataMatrixCode
@@ -32,9 +35,9 @@ internal fun BarcodeFormat.toAvMetadataType(): String = when (this) {
     BarcodeFormat.CODE_93 -> AVMetadataObjectTypeCode93Code
     BarcodeFormat.ITF -> AVMetadataObjectTypeITF14Code
     BarcodeFormat.CODABAR -> AVMetadataObjectTypeCodabarCode
-}
+}!!
 
-internal fun avMetadataTypeToBarcodeFormat(type: String): BarcodeFormat? = when (type) {
+internal fun avMetadataTypeToBarcodeFormat(type: String?): BarcodeFormat? = when (type) {
     AVMetadataObjectTypeQRCode -> BarcodeFormat.QR_CODE
     AVMetadataObjectTypeDataMatrixCode -> BarcodeFormat.DATA_MATRIX
     AVMetadataObjectTypePDF417Code -> BarcodeFormat.PDF_417
