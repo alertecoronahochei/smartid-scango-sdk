@@ -6,3 +6,7 @@ local.properties
 .kotlin/
 .DS_Store
 xcuserdata/
+
+# XcodeGen output — generated from iosApp/project.yml, never committed
+iosApp/*.xcodeproj
+artifacts/

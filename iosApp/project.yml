@@ -1,0 +1,45 @@
+name: ScanGoDemo
+
+# Generated Xcode project for the iOS demo host app.
+# Regenerate with:  cd iosApp && xcodegen generate
+# The .xcodeproj is NOT committed — it is produced on demand (locally on a Mac or in CI),
+# exactly like the app itself, which can only be built on macOS.
+
+options:
+  bundleIdPrefix: ro.smartid.scango
+  deploymentTarget:
+    iOS: "15.4"          # Codabar in AVFoundation is available from 15.4
+  createIntermediateGroups: true
+
+targets:
+  ScanGoDemo:
+    type: application
+    platform: iOS
+    sources:
+      - path: iosApp
+        excludes:
+          - "Info.plist"   # referenced via INFOPLIST_FILE, not compiled/copied as a source
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ro.smartid.scango.demo
+        INFOPLIST_FILE: iosApp/Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"     # iPhone only (portrait-only host)
+        SWIFT_VERSION: "5.0"
+    dependencies:
+      # SmartScanSDK.xcframework is a STATIC framework (isStatic = true in sdk/build.gradle.kts),
+      # so it is linked but never embedded. Build it first with:
+      #   ./gradlew :sdk:assembleSmartScanSDKXCFramework
+      - framework: ../sdk/build/XCFrameworks/release/SmartScanSDK.xcframework
+        embed: false
+        link: true
+
+schemes:
+  ScanGoDemo:
+    build:
+      targets:
+        ScanGoDemo: all
+    run:
+      config: Debug

@@ -1,0 +1,62 @@
+name: iOS App (simulator)
+
+# Builds the actual iOS demo APP (not just the SDK) for the iOS Simulator.
+# Runs on macOS because Xcode/xcodebuild exist only on macOS — this is the step
+# that cannot be done on Windows. No code signing is required for a simulator build,
+# so this needs no Apple Developer certificates or provisioning profiles.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  build-app:
+    runs-on: macos-14   # Apple Silicon runner
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # 1. The Kotlin/Native SDK the app links against.
+      - name: Build SmartScanSDK.xcframework
+        run: ./gradlew :sdk:assembleSmartScanSDKXCFramework --stacktrace
+
+      # 2. Generate the Xcode project from iosApp/project.yml.
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: cd iosApp && xcodegen generate
+
+      # 3. Build the app for the simulator, without signing.
+      - name: Build app (iphonesimulator, no signing)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project iosApp/ScanGoDemo.xcodeproj \
+            -scheme ScanGoDemo \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios-app \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      # 4. Publish the built .app so it can be downloaded and run in a simulator.
+      - name: Upload .app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScanGoDemo-simulator-app
+          path: build/ios-app/Build/Products/Debug-iphonesimulator/ScanGoDemo.app
+          if-no-files-found: error
