@@ -56,12 +56,11 @@ private struct ScanGoView: UIViewControllerRepresentable {
     let onFinish: ([ScannedBarcode]) -> Void
 
     func makeUIViewController(context: Context) -> UIViewController {
-        ScanGoViewControllerKt.ScanGoViewController(
-            strings: ScanGoStrings(),          // pass your own instance to localise
-            onFinish: { barcodes in
-                onFinish(barcodes as? [ScannedBarcode] ?? [])
-            }
-        )
+        // Default (Romanian) strings; for another language use the
+        // makeScanGoViewController(strings:onFinish:) overload with your own ScanGoStrings.
+        IosEntryPointsKt.makeScanGoViewController { barcodes in
+            onFinish(barcodes as? [ScannedBarcode] ?? [])
+        }
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
