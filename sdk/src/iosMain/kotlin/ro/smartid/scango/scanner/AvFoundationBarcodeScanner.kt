@@ -103,53 +103,72 @@ class AvFoundationBarcodeScanner(
         if (released) return
         if (!configured && !configureSession()) return
         if (!session.isRunning()) {
-            dispatch_async(sessionQueue) { session.startRunning() }
+            dispatch_async(sessionQueue) {
+                // startRunning can raise an Objective-C exception (surfaced to Kotlin as a
+                // foreign exception). Uncaught on this background queue it would abort the whole
+                // host app, so we catch it and report it instead.
+                try {
+                    session.startRunning()
+                } catch (t: Throwable) {
+                    _errors.tryEmit(ScanError.Internal(t.message ?: "camera failed to start"))
+                }
+            }
         }
         setTorchEnabled(torchEnabled)
     }
 
     private fun configureSession(): Boolean {
-        val captureDevice = AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo)
-        if (captureDevice == null) {
-            _errors.tryEmit(ScanError.CameraUnavailable)
-            return false
-        }
-        device = captureDevice
+        return try {
+            val captureDevice = AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo)
+            if (captureDevice == null) {
+                _errors.tryEmit(ScanError.CameraUnavailable)
+                return false
+            }
+            device = captureDevice
 
-        val input = AVCaptureDeviceInput.deviceInputWithDevice(captureDevice, null)
-        if (input == null) {
-            _errors.tryEmit(ScanError.CameraUnavailable)
-            return false
-        }
+            val input = AVCaptureDeviceInput.deviceInputWithDevice(captureDevice, null)
+            if (input == null) {
+                _errors.tryEmit(ScanError.CameraUnavailable)
+                return false
+            }
 
-        session.beginConfiguration()
-        if (session.canAddInput(input)) session.addInput(input)
-        if (session.canAddOutput(metadataOutput)) {
-            session.addOutput(metadataOutput)
-            // The delegate must be set before the types, and the types only after addOutput —
-            // AVFoundation throws if you ask for a type the output does not yet support.
-            metadataOutput.setMetadataObjectsDelegate(delegate, queue = dispatch_get_main_queue())
-        } else {
+            session.beginConfiguration()
+            if (session.canAddInput(input)) session.addInput(input)
+            if (session.canAddOutput(metadataOutput)) {
+                session.addOutput(metadataOutput)
+                // The delegate must be set before the types, and the types only after addOutput —
+                // AVFoundation throws if you ask for a type the output does not yet support.
+                metadataOutput.setMetadataObjectsDelegate(delegate, queue = dispatch_get_main_queue())
+            } else {
+                session.commitConfiguration()
+                _errors.tryEmit(ScanError.CameraUnavailable)
+                return false
+            }
             session.commitConfiguration()
-            _errors.tryEmit(ScanError.CameraUnavailable)
-            return false
-        }
-        session.commitConfiguration()
 
-        applyFormats(enabledFormats)
-        configured = true
-        return true
+            applyFormats(enabledFormats)
+            configured = true
+            true
+        } catch (t: Throwable) {
+            // Never let an AVFoundation exception abort the host app — surface it as an error.
+            _errors.tryEmit(ScanError.Internal(t.message ?: "camera configuration failed"))
+            false
+        }
     }
 
     private fun applyFormats(formats: Set<BarcodeFormat>) {
         if (!configured && session.outputs.isEmpty()) return
-        val available = metadataOutput.availableMetadataObjectTypes.filterIsInstance<String>().toSet()
-        val requested = formats.ifEmpty { BarcodeFormat.DEFAULTS }
-            .map { it.toAvMetadataType() }
-            .filter { it in available }
-            .distinct()
-        if (requested.isNotEmpty()) {
-            metadataOutput.metadataObjectTypes = requested
+        try {
+            val available = metadataOutput.availableMetadataObjectTypes.filterIsInstance<String>().toSet()
+            val requested = formats.ifEmpty { BarcodeFormat.DEFAULTS }
+                .map { it.toAvMetadataType() }
+                .filter { it in available }
+                .distinct()
+            if (requested.isNotEmpty()) {
+                metadataOutput.metadataObjectTypes = requested
+            }
+        } catch (t: Throwable) {
+            _errors.tryEmit(ScanError.Internal(t.message ?: "unsupported barcode formats"))
         }
     }
 
@@ -162,9 +181,13 @@ class AvFoundationBarcodeScanner(
         torchEnabled = enabled
         val captureDevice = device ?: return
         if (!captureDevice.hasTorch()) return
-        if (captureDevice.lockForConfiguration(null)) {
-            captureDevice.setTorchMode(if (enabled) AVCaptureTorchModeOn else AVCaptureTorchModeOff)
-            captureDevice.unlockForConfiguration()
+        try {
+            if (captureDevice.lockForConfiguration(null)) {
+                captureDevice.setTorchMode(if (enabled) AVCaptureTorchModeOn else AVCaptureTorchModeOff)
+                captureDevice.unlockForConfiguration()
+            }
+        } catch (t: Throwable) {
+            _errors.tryEmit(ScanError.Internal(t.message ?: "torch toggle failed"))
         }
     }
 
