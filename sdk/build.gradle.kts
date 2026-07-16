@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+import java.io.File
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -84,3 +85,37 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+
+// --- Privacy manifest ---------------------------------------------------------
+// Apple requires third-party SDKs to ship a PrivacyInfo.xcprivacy. Kotlin/Native does not
+// bundle it automatically, so we copy it into every SmartScanSDK.framework slice right after
+// the XCFramework is assembled. Runs both locally (on a Mac) and in CI, since it hooks the
+// assemble*XCFramework tasks.
+val privacyManifestFile = layout.projectDirectory.file("privacy/PrivacyInfo.xcprivacy")
+
+val embedPrivacyManifest by tasks.registering {
+    description = "Copies PrivacyInfo.xcprivacy into each SmartScanSDK.framework inside the built XCFrameworks."
+    inputs.file(privacyManifestFile)
+    val xcframeworksRoot = layout.buildDirectory.dir("XCFrameworks")
+    doLast {
+        val manifest = privacyManifestFile.asFile
+        val root = xcframeworksRoot.get().asFile
+        if (!root.exists()) {
+            logger.lifecycle("No XCFrameworks directory yet — skipping privacy manifest embed.")
+            return@doLast
+        }
+        val frameworks = root.walkTopDown()
+            .filter { it.isDirectory && it.name == "SmartScanSDK.framework" }
+            .toList()
+        frameworks.forEach { fw ->
+            manifest.copyTo(File(fw, "PrivacyInfo.xcprivacy"), overwrite = true)
+            logger.lifecycle("Embedded PrivacyInfo.xcprivacy into ${fw.relativeTo(rootDir)}")
+        }
+        if (frameworks.isEmpty()) {
+            logger.warn("embedPrivacyManifest found no SmartScanSDK.framework to write into.")
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("assembleSmartScanSDK") && it.name.endsWith("XCFramework") }
+    .configureEach { finalizedBy(embedPrivacyManifest) }

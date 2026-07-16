@@ -1,0 +1,94 @@
+name: iOS SDK Release (SPM)
+
+# Cuts a versioned SPM release of SmartScanSDK:
+#   build XCFramework (+ privacy manifest) -> zip -> checksum -> rewrite Package.swift
+#   -> commit -> tag vX.Y.Z -> GitHub Release with the .zip attached.
+#
+# The commit that gets tagged is the one whose Package.swift already carries the matching
+# url + checksum, so `.package(url: ..., from: "X.Y.Z")` always resolves consistently.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the leading v (e.g. 0.1.0)"
+        required: true
+
+permissions:
+  contents: write   # push the release commit + tag, create the GitHub Release
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build XCFramework (privacy manifest embedded)
+        run: ./gradlew :sdk:assembleSmartScanSDKXCFramework --stacktrace
+
+      - name: Zip the XCFramework
+        id: zip
+        run: |
+          set -e
+          src=sdk/build/XCFrameworks/release/SmartScanSDK.xcframework
+          test -e "$src/ios-arm64/SmartScanSDK.framework/PrivacyInfo.xcprivacy" \
+            || { echo "::error::privacy manifest missing — aborting release"; exit 1; }
+          mkdir -p dist
+          # -c keeps symlinks; zip from the parent so the archive holds SmartScanSDK.xcframework/...
+          (cd sdk/build/XCFrameworks/release && zip -r -y "$GITHUB_WORKSPACE/dist/SmartScanSDK.xcframework.zip" SmartScanSDK.xcframework >/dev/null)
+          echo "zip=dist/SmartScanSDK.xcframework.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Compute checksum
+        id: sum
+        run: |
+          set -e
+          checksum=$(swift package compute-checksum dist/SmartScanSDK.xcframework.zip)
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+          echo "checksum: $checksum"
+
+      - name: Rewrite Package.swift (url + checksum)
+        env:
+          VERSION: ${{ inputs.version }}
+          CHECKSUM: ${{ steps.sum.outputs.checksum }}
+        run: |
+          set -e
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/SmartScanSDK.xcframework.zip"
+          # Replace the two managed lines, anchored by their marker comments.
+          perl -0pi -e "s|(// BINARY_TARGET:URL\n\s*url: \").*?(\")|\${1}${url}\${2}|s" Package.swift
+          perl -0pi -e "s|(// BINARY_TARGET:CHECKSUM\n\s*checksum: \").*?(\")|\${1}${CHECKSUM}\${2}|s" Package.swift
+          echo "----- Package.swift -----"
+          cat Package.swift
+
+      - name: Commit, tag and push
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Package.swift
+          git commit -m "Release v${VERSION}"
+          git tag "v${VERSION}"
+          git push origin main
+          git push origin "v${VERSION}"
+
+      - name: Create GitHub Release with the XCFramework
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh release create "v${VERSION}" dist/SmartScanSDK.xcframework.zip \
+            --title "v${VERSION}" \
+            --notes "SmartScanSDK ${VERSION} — SPM binary release. Consume with .package(url: \"https://github.com/${GITHUB_REPOSITORY}\", from: \"${VERSION}\")."

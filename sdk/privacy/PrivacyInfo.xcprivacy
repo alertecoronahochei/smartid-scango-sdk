@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Privacy manifest for SmartScanSDK, embedded into every SmartScanSDK.framework slice.
+
+  Truthful to the code:
+   - The SDK does NOT track users and does NOT transmit any collected data off-device
+     (camera frames are processed locally; see the permission copy in ScanGoStrings).
+   - It DOES use NSUserDefaults to persist scan settings (KeyValueStore.ios.kt), which is a
+     "required reason" API — declared below with reason CA92.1 (data accessible only to this app).
+
+  Camera access itself is governed by NSCameraUsageDescription in the host Info.plist,
+  not by this manifest's accessed-API list.
+-->
+<plist version="1.0">
+<dict>
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

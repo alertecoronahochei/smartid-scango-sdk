@@ -32,6 +32,18 @@ jobs:
       - name: Assemble XCFramework
         run: ./gradlew :sdk:assembleSmartScanSDKXCFramework --stacktrace
 
+      - name: Verify privacy manifest is embedded
+        run: |
+          set -e
+          root=sdk/build/XCFrameworks/release/SmartScanSDK.xcframework
+          found=$(find "$root" -name PrivacyInfo.xcprivacy | wc -l | tr -d ' ')
+          echo "PrivacyInfo.xcprivacy copies found: $found"
+          find "$root" -name PrivacyInfo.xcprivacy
+          if [ "$found" -lt 1 ]; then
+            echo "::error::PrivacyInfo.xcprivacy missing from XCFramework"
+            exit 1
+          fi
+
       - name: Run common unit tests
         run: ./gradlew :sdk:iosSimulatorArm64Test --stacktrace
 
