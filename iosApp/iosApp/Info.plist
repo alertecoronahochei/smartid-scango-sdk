@@ -19,7 +19,7 @@
 
     <!-- REQUIRED by the SDK. Without it, iOS kills the app the moment the camera starts. -->
     <key>NSCameraUsageDescription</key>
-    <string>Camera este folosită pentru a scana coduri de bare.</string>
+    <string>Camera este folosita pentru a scana coduri de bare.</string>
 
     <key>UILaunchScreen</key>
     <dict/>
